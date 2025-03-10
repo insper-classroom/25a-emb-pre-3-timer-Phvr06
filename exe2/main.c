@@ -11,6 +11,9 @@ const int LED_PIN_G = 6;
 volatile int flag_r = 0;
 volatile int flag_g = 0;
 
+volatile int flag_timer_r = 0;
+volatile int flag_timer_g = 0;
+
 void btn_callback(uint gpio, uint32_t events) {
     if (events == 0x4) {
         if (gpio == BTN_PIN_R)
@@ -18,6 +21,16 @@ void btn_callback(uint gpio, uint32_t events) {
         else if (gpio == BTN_PIN_G)
             flag_g = 1;
     }
+}
+
+bool timer_callback_r(repeating_timer_t *rt) {
+    flag_timer_r = 1;
+    return true;
+}
+
+bool timer_callback_g(repeating_timer_t *rt) {
+    flag_timer_g = 1;
+    return true;
 }
 
 int main() {
@@ -39,14 +52,74 @@ int main() {
                                        &btn_callback);
     gpio_set_irq_enabled(BTN_PIN_G, GPIO_IRQ_EDGE_FALL, true);
 
+    repeating_timer_t timer_r;
+    repeating_timer_t timer_g;
+    int timer_exist_r = 0;
+    int timer_exist_g = 0;
+    int flag_last_r = 0;
+    int flag_last_g = 0;
+    int led_state_r = 0;
+    int led_state_g = 0;
+
+    gpio_put(LED_PIN_R, led_state_r);
+    gpio_put(LED_PIN_G, led_state_g);
+
     while (true) {
 
         if (flag_r) {
             flag_r = 0;
+            if (!timer_exist_r) {
+                if (!add_repeating_timer_ms(500, timer_callback_r, NULL, &timer_r)) {
+                    printf("Failed to add timer\n");
+                } else {
+                    timer_exist_r = 1;
+                }
+            } else {
+                cancel_repeating_timer(&timer_r);
+                timer_exist_r = 0;
+                flag_last_r = 1;
+                flag_timer_r = 0;
+            }
         }
 
         if (flag_g) {
             flag_g = 0;
+            if (!timer_exist_g) {
+                if (!add_repeating_timer_ms(250, timer_callback_g, NULL, &timer_g)) {
+                    printf("Failed to add timer\n");
+                } else {
+                    timer_exist_g = 1;
+                }
+            } else {
+                cancel_repeating_timer(&timer_g);
+                timer_exist_g = 0;
+                flag_last_g = 1;
+                flag_timer_g = 0;
+            }
+        }
+
+        if (flag_timer_r) {
+            flag_timer_r = 0;
+            gpio_put(LED_PIN_R, !led_state_r);
+            led_state_r = !led_state_r;
+        }
+
+        if (flag_timer_g) {
+            flag_timer_g = 0;
+            gpio_put(LED_PIN_G, !led_state_g);
+            led_state_g = !led_state_g;
+        }
+
+        if (flag_last_r) {
+            flag_last_r = 0;
+            gpio_put(LED_PIN_R, 0);
+            led_state_r = 0;
+        }
+
+        if (flag_last_g) {
+            flag_last_g = 0;
+            gpio_put(LED_PIN_G, 0);
+            led_state_g = 0;
         }
     }
 }
