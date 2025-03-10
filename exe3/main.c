@@ -31,9 +31,19 @@ int main() {
     gpio_set_irq_enabled_with_callback(
         BTN_PIN_R, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &btn_callback);
 
+    int led_state = 0;
+    gpio_put(LED_PIN_R, led_state);
+    
     while (true) {
-
         if (flag_f_r) {
+            uint32_t start_ms = to_ms_since_boot(get_absolute_time());
+            while (flag_f_r) {
+                if (to_ms_since_boot(get_absolute_time()) - start_ms > 500) {
+                    led_state = !led_state;
+                    gpio_put(LED_PIN_R, led_state);
+                    flag_f_r = 0;
+                }
+            }
         }
     }
 }
